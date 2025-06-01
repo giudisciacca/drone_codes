@@ -34,7 +34,7 @@ quaternion compute_quaternion_derivative(const quaternion* q, float gx, float gy
         q->w * gx + q->y * gz - q->z * gy,
         q->w * gy - q->x * gz + q->z * gx,
         q->w * gz + q->x * gy - q->y * gx
-    ) * half_dt;
+    ); //* half_dt;
 }
 
 

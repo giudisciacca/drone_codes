@@ -22,6 +22,16 @@ quaternion quaternion_product(const quaternion* q1, const quaternion* q2) {
     );
 }
 
+quaternion quaternion_product(const quaternion* q1, const float* scalar) {
+    return quaternion(
+        q1->w * (*scalar),
+        q1->x * (*scalar),
+        q1->y * (*scalar),
+        q1->z * (*scalar)
+    );
+}
+
+
 int main() {
     quaternion q1(1.0, 2.0, 3.0, 4.0);
     quaternion q2(5.0, 6.0, 7.0, 8.0);
