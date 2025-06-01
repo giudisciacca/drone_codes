@@ -1,0 +1,21 @@
+{
+    "version": "2.0.0",
+    "tasks": [
+        {
+            "label": "Build active file with cl.exe",
+            "type": "shell",
+            "command": "\"C:\\Program Files\\Microsoft Visual Studio\\2022\\Community\\Common7\\Tools\\VsDevCmd.bat\" && cl.exe /EHsc \"${file}\"",
+            "group": {
+                "kind": "build",
+                "isDefault": true
+            },
+            "problemMatcher": ["$msCompile"],
+            "detail": "Builds the active file using cl.exe after initializing the VS Developer environment",
+            "options": {
+                "shell": {
+                    "executable": "cmd.exe"
+                }
+            }
+        }
+    ]
+}
