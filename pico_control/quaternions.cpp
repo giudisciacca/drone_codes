@@ -32,7 +32,7 @@ quaternion quaternion_product(const quaternion* q1, const float* scalar) {
 }
 
 
-int main() {
+int _main_quaternions() {
     quaternion q1(1.0, 2.0, 3.0, 4.0);
     quaternion q2(5.0, 6.0, 7.0, 8.0);
     
@@ -45,3 +45,4 @@ int main() {
     
     return 0;
 }
+

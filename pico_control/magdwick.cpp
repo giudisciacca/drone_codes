@@ -45,7 +45,7 @@ quaternion get_magdwick_gradient(){
     return quaternion(0.0, 1.0, 0.0, 0.0);
 }
 
-int main() {
+int _main_magdwick() {
     quaternion q1(1.0, 2.0, 3.0, 4.0);
     quaternion q2(5.0, 6.0, 7.0, 8.0);
     
