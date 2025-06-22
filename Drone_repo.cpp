@@ -10,6 +10,8 @@
 #include "hardware/clocks.h"
 #include "hardware/uart.h"
 
+#include "pico_control/imc29048_io.cpp"
+
 // SPI Defines
 // We are going to use SPI 0, and allocate it to the following GPIO pins
 // Pins can be changed, see the GPIO function select table in the datasheet for information on GPIO assignments
@@ -137,31 +139,83 @@ int main()
         }
 
         // Magnetometer (example: AK09916, check your IMU's datasheet for address and registers)
-        const uint8_t MAG_ADDR = 0x0C; // Example I2C address for magnetometer
-        uint8_t mag_reg = 0x10;        // Example: starting register for mag data
-        uint8_t mag_data[6] = {0};
+        // For ICM-20948, the magnetometer (AK09916) is accessed via the IMU's internal I2C master.
+        // Direct access to 0x0C will fail unless the IMU is configured to pass-through.
+        // Here is an example of reading the magnetometer status register via the IMU's registers.
+        // You must first enable the IMU's I2C master and configure it to read the magnetometer.
+        // This is a simplified example; for full support, use a library or follow the ICM-20948 datasheet.
 
-        //int mag_write = i2c_write_blocking(I2C_PORT, MAG_ADDR, &mag_reg, 1, true);
-        //if (mag_write < 0) {
-        //    printf("I2C write to magnetometer failed\n");
-        //} else {
-        //    int mag_read = i2c_read_blocking(I2C_PORT, MAG_ADDR, mag_data, 6, false);
-        //    if (mag_read < 0) {
-        //    printf("I2C read from magnetometer failed\n");
-        //    } else {
-        //    int16_t mag_x = (mag_data[1] << 8) | mag_data[0];
-        //    int16_t mag_y = (mag_data[3] << 8) | mag_data[2];
-        //    int16_t mag_z = (mag_data[5] << 8) | mag_data[4];
-        //    printf("Mag: X=%d Y=%d Z=%d\n", mag_x, mag_y, mag_z);
-        //    }
-        //}
+        // Magnetometer access requires enabling pass-through mode by setting BYPASS_EN in INT_PIN_CFG (0x0F)
+        // and disabling I2C master mode in USER_CTRL (0x03). Make sure to switch to USER BANK 0 first.
+
+        // Switch to USER BANK 0
+        uint8_t bank0[2] = {0x7F, 0x00};
+        i2c_write_blocking(I2C_PORT, IMU_ADDR, bank0, 2, false);
+
+        // Disable I2C master mode in USER_CTRL (0x03)
+        uint8_t user_ctrl[2] = {0x03, 0x00};
+        i2c_write_blocking(I2C_PORT, IMU_ADDR, user_ctrl, 2, false);
+
+        // Enable BYPASS_EN in INT_PIN_CFG (0x0F)
+        uint8_t int_pin_cfg[2] = {0x0F, 0x02};
+        i2c_write_blocking(I2C_PORT, IMU_ADDR, int_pin_cfg, 2, false);
+
+        sleep_ms(10); // Give time for bypass to take effect
+
+        // Now you can try to access the magnetometer directly at address 0x0C
+        const uint8_t MAG_ADDR = 0x0C;
+
+        // Power down magnetometer
+        uint8_t mag_ctrl2[2] = {0x31, 0x00};
+        i2c_write_blocking(I2C_PORT, MAG_ADDR, mag_ctrl2, 2, false);
+        sleep_ms(10);
+
+        // Power up magnetometer in single measurement mode (0x01)
+        mag_ctrl2[1] = 0x01;
+        i2c_write_blocking(I2C_PORT, MAG_ADDR, mag_ctrl2, 2, false);
+        sleep_ms(10);
+
+        // Read ST1 register to check if data is ready
+        uint8_t mag_st1_reg = 0x10; // ST1 register for AK09916
+        uint8_t mag_st1 = 0;
+        int mag_st1_write = i2c_write_blocking(I2C_PORT, MAG_ADDR, &mag_st1_reg, 1, true);
+        if (mag_st1_write < 0) {
+            printf("I2C write to magnetometer ST1 reg failed\n");
+        } else {
+            int mag_st1_read = i2c_read_blocking(I2C_PORT, MAG_ADDR, &mag_st1, 1, false);
+            if (mag_st1_read < 0) {
+                printf("I2C read from magnetometer ST1 failed\n");
+            } else if (mag_st1 & 0x01) { // Data ready
+                uint8_t mag_data_reg = 0x11; // HXL register
+                uint8_t mag_data[6] = {0};
+                int mag_data_write = i2c_write_blocking(I2C_PORT, MAG_ADDR, &mag_data_reg, 1, true);
+                if (mag_data_write < 0) {
+                    printf("I2C write to magnetometer data reg failed\n");
+                } else {
+                    int mag_data_read = i2c_read_blocking(I2C_PORT, MAG_ADDR, mag_data, 6, false);
+                    if (mag_data_read < 0) {
+                        printf("I2C read from magnetometer data failed\n");
+                    } else {
+                        int16_t mag_x = (mag_data[1] << 8) | mag_data[0];
+                        int16_t mag_y = (mag_data[3] << 8) | mag_data[2];
+                        int16_t mag_z = (mag_data[5] << 8) | mag_data[4];
+                        printf("Mag: X=%d Y=%d Z=%d\n", mag_x, mag_y, mag_z);
+                    }
+                }
+            } else {
+                printf("Magnetometer data not ready\n");
+            }
+        }
+        sleep_ms(1000);
+        // Note: For real use, you must configure the IMU to enable the I2C master and set up the magnetometer read.
+        // See the ICM-20948 datasheet or use a library for full initialization.
 
         // Barometer (example: BMP280, check your sensor's datasheet for address and registers)
         //const uint8_t BARO_ADDR = 0x76; // Example I2C address for barometer
         //uint8_t baro_reg = 0xF7;        // Starting register for pressure/temp data
         //uint8_t baro_data[6] = {0};
 //
-        //int baro_write = i2c_write_blocking(I2C_PORT, BARO_ADDR, &baro_reg, 1, true);
+        //int baro_write = i2c_write_blocking(I2C_PORT, BARO_A0DR, &baro_reg, 1, true);
         //if (baro_write < 0) {
         //    printf("I2C write to barometer failed\n");
         //} else {
