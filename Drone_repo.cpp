@@ -29,8 +29,8 @@
 #define I2C_SCL 21
 
 // Data will be copied from src to dst
-const char src[] = "Hello, world! (from DMA)";
-char dst[count_of(src)];
+//const char src[] = "Hello, world! (from DMA)";
+//char dst[count_of(src)];
 
 #include "blink.pio.h"
 
@@ -101,8 +101,10 @@ int main()
     const uint8_t PWR_MGMT_1_REG = 0x06; // Power management register (verify with your IMU's datasheet)
     uint8_t pwr_mgmt_data[2] = {PWR_MGMT_1_REG, 0x01}; // Example: set clock source, disable sleep
 
-    
-    
+    sleep_ms(5000);
+    IMC29048 imc29048;    
+    imc29048.initialise_sensors();
+
     //int init_result = 0;
     while (true) {
     // Wake up the IMU
@@ -206,7 +208,14 @@ int main()
                 printf("Magnetometer data not ready\n");
             }
         }
-        sleep_ms(1000);
+        
+        printf("Reading IMU and Magnetometer data with classes...\n");
+        sleep_ms(5);
+        
+        imc29048_data imc29048_data = imc29048.read_data();
+        imc29048.print_data();
+        printf("End of Reading IMU and Magnetometer data with classes...\n");
+        sleep_ms(5);
         // Note: For real use, you must configure the IMU to enable the I2C master and set up the magnetometer read.
         // See the ICM-20948 datasheet or use a library for full initialization.
 

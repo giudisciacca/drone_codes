@@ -11,6 +11,10 @@
 # include "hardware/uart.h"
 # include "blink.pio.h"
 
+#ifndef M_PI
+#define M_PI 3.14159265358979323846
+#endif
+
 // SPI Defines
 // We are going to use SPI 0, and allocate it to the following GPIO pins
 // Pins can be changed, see the GPIO function select table in the datasheet for information on GPIO assignments
@@ -31,11 +35,6 @@
 const char src[] = "Hello, world! (from DMA)";
 char dst[count_of(src)];
 
-int64_t alarm_callback(alarm_id_t id, void *user_data) {
-    // Put your timeout handler code in here
-    return 0;
-}
-
 // UART defines
 // By default the stdout UART is `uart0`, so we will use the second one
 #define UART_ID uart1
@@ -48,21 +47,21 @@ int64_t alarm_callback(alarm_id_t id, void *user_data) {
 
 
 struct gyro_data {
-    int16_t x;
-    int16_t y;
-    int16_t z;
+    double x;
+    double y;
+    double z;
 };
 
 struct accel_data {
-    int16_t x;
-    int16_t y;
-    int16_t z;
+    double x;
+    double y;
+    double z;
 };
 
 struct magnetometer_data {
-    int16_t x;
-    int16_t y;
-    int16_t z;
+    double x;
+    double y;
+    double z;
 };
 
 struct imu_data {
@@ -76,6 +75,11 @@ struct imc29048_data {
     struct accel_data accel; // Accelerometer data
     struct magnetometer_data mag; // Magnetometer data
 };
+
+
+double scale_gyro = 0.015267*( M_PI / 180.0); 
+double scale_accel = 0.000061* 9.80665;
+double scale_mag = 0.15;
 
 class IMU {
 public:
@@ -106,12 +110,12 @@ public:
         // Convert raw IMU data to SI units (e.g., m/s^2 for acceleration, rad/s for angular velocity)
         // Implement conversion logic here
         struct imu_data si_data = {};
-        si_data.accel.x = data.accel.x * 0.000061; // Example conversion factor
-        si_data.accel.y = data.accel.y * 0.000061;
-        si_data.accel.z = data.accel.z * 0.000061;
-        si_data.gyro.x = data.gyro.x * 0.015267; // Example conversion factor
-        si_data.gyro.y = data.gyro.y * 0.015267;
-        si_data.gyro.z = data.gyro.z * 0.015267;
+        si_data.accel.x = data.accel.x * scale_accel; // Example conversion factor
+        si_data.accel.y = data.accel.y * scale_accel;
+        si_data.accel.z = data.accel.z * scale_accel;
+        si_data.gyro.x = data.gyro.x * scale_gyro; // Example conversion factor
+        si_data.gyro.y = data.gyro.y * scale_gyro;
+        si_data.gyro.z = data.gyro.z * scale_gyro;
         return si_data;
     }
 
@@ -148,12 +152,12 @@ public:
                     int16_t gyro_z  = (imu_data[10] << 8) | imu_data[11];
 
                     
-                    out_imu_data.gyro.x = gyro_x;
-                    out_imu_data.gyro.y = gyro_y;
-                    out_imu_data.gyro.z = gyro_z;
-                    out_imu_data.accel.x = accel_x;
-                    out_imu_data.accel.y = accel_y;
-                    out_imu_data.accel.z = accel_z;
+                    out_imu_data.gyro.x = static_cast<double>(gyro_x);
+                    out_imu_data.gyro.y = static_cast<double>(gyro_y);
+                    out_imu_data.gyro.z = static_cast<double>(gyro_z);
+                    out_imu_data.accel.x = static_cast<double>(accel_x);
+                    out_imu_data.accel.y = static_cast<double>(accel_y);
+                    out_imu_data.accel.z = static_cast<double>(accel_z);
                 }
             }
         }
@@ -172,6 +176,8 @@ public:
 
 class Magnetometer {
 public:
+    const uint8_t IMU_ADDR = 0x68; // ICM-29048 default I2C address (check your IMU's datasheet)
+    const uint8_t MAG_ADDR = 0x0C; // Magnetometer address (
     Magnetometer() {
         // Constructor: Initialize the magnetometer
         initialise_magnetometer();
@@ -237,10 +243,10 @@ public:
                     if (mag_data_read < 0) {
                         printf("I2C read from magnetometer data failed\n");
                     } else {
-                        raw_data.x = (mag_data[1] << 8) | mag_data[0];
-                        raw_data.y = (mag_data[3] << 8) | mag_data[2];
-                        raw_data.z = (mag_data[5] << 8) | mag_data[4];
-                        printf("Mag: X=%d Y=%d Z=%d\n", raw_data.x, raw_data.y, raw_data.z);
+                        raw_data.x = static_cast<double>( (mag_data[1] << 8) | mag_data[0]);
+                        raw_data.y = static_cast<double>((mag_data[3] << 8) | mag_data[2]);
+                        raw_data.z = static_cast<double>((mag_data[5] << 8) | mag_data[4]);
+                        printf("Mag: X=%f Y=%f Z=%f\n", raw_data.x, raw_data.y, raw_data.z);
                     }
                 }
             } else {
@@ -260,9 +266,9 @@ public:
         // Convert raw magnetometer data to SI units (e.g., microteslas)
         // Implement conversion logic here
         struct magnetometer_data si_data = {};
-        si_data.x = raw_data.x * 0.15; // Example conversion factor
-        si_data.y = raw_data.y * 0.15;
-        si_data.z = raw_data.z * 0.15;
+        si_data.x = raw_data.x * scale_mag; // Example conversion factor
+        si_data.y = raw_data.y * scale_mag;
+        si_data.z = raw_data.z * scale_mag;
         return si_data;
     };
 };
@@ -311,171 +317,17 @@ public:
     }
 
     void print_data() {
-        // Print IMC-29048 data to console
-        // Implement printing logic here
+        struct imc29048_data data = read_data();
+        printf("Timestamp: %u ms\n", data.timestamp);  
+        printf("IMU Data - Gyro: X=%f Y=%f Z=%f | Accel: X=%f Y=%f Z=%f\n",
+               data.imu.gyro.x, data.imu.gyro.y, data.imu.gyro.z,
+               data.imu.accel.x, data.imu.accel.y, data.imu.accel.z);
+        printf("Magnetometer Data - X=%f Y=%f Z=%f\n",
+               data.mag.x, data.mag.y, data.mag.z);
+
     }
 };
 
-int functions()
-{
-
-
-    // Initialize the IMU
-    initialise_imu();
-
-    
-    
-    
-
-        // Magnetometer (example: AK09916, check your IMU's datasheet for address and registers)
-        // For ICM-20948, the magnetometer (AK09916) is accessed via the IMU's internal I2C master.
-        // Direct access to 0x0C will fail unless the IMU is configured to pass-through.
-        // Here is an example of reading the magnetometer status register via the IMU's registers.
-        // You must first enable the IMU's I2C master and configure it to read the magnetometer.
-        // This is a simplified example; for full support, use a library or follow the ICM-20948 datasheet.
-
-        // Magnetometer access requires enabling pass-through mode by setting BYPASS_EN in INT_PIN_CFG (0x0F)
-        // and disabling I2C master mode in USER_CTRL (0x03). Make sure to switch to USER BANK 0 first.
-
-        sleep_ms(1000);
-        // Note: For real use, you must configure the IMU to enable the I2C master and set up the magnetometer read.
-        // See the ICM-20948 datasheet or use a library for full initialization.
-
-        // Barometer (example: BMP280, check your sensor's datasheet for address and registers)
-        //const uint8_t BARO_ADDR = 0x76; // Example I2C address for barometer
-        //uint8_t baro_reg = 0xF7;        // Starting register for pressure/temp data
-        //uint8_t baro_data[6] = {0};
-//
-        //int baro_write = i2c_write_blocking(I2C_PORT, BARO_A0DR, &baro_reg, 1, true);
-        //if (baro_write < 0) {
-        //    printf("I2C write to barometer failed\n");
-        //} else {
-        //    int baro_read = i2c_read_blocking(I2C_PORT, BARO_ADDR, baro_data, 6, false);
-        //    if (baro_read < 0) {
-        //    printf("I2C read from barometer failed\n");
-        //    } else {
-        //    // Combine bytes for raw pressure and temperature (20 bits each, see BMP280 datasheet)
-        //    int32_t press_raw = ((baro_data[0] << 12) | (baro_data[1] << 4) | (baro_data[2] >> 4));
-        //    int32_t temp_raw  = ((baro_data[3] << 12) | (baro_data[4] << 4) | (baro_data[5] >> 4));
-        //    printf("Baro: Pressure(raw)=%ld Temp(raw)=%ld\n", press_raw, temp_raw);
-        //    }
-        //}
-    }
-    /*
-    // Read WHO_AM_I register (replace with correct register for your IMU)
-    const uint8_t WHO_AM_I_REG = 0x75;
-    uint8_t reg = WHO_AM_I_REG;
-    uint8_t value = 0;
-
-    printf("Reading IMU WHO_AM_I register over I2C...\n");
-    
-    int result = i2c_write_blocking(I2C_PORT, IMU_ADDR, &reg, 1, true);
-    if (result < 0) {
-        printf("I2C write to WHO_AM_I failed\n");
-    } else {
-        result = i2c_read_blocking(I2C_PORT, IMU_ADDR, &value, 1, false);
-        if (result < 0) {
-            printf("I2C read from WHO_AM_I failed\n");
-        } else {
-            printf("IMU WHO_AM_I: 0x%02x\n", value);
-        }
-}
-*/
-    // For more examples of I2C use see https://github.com/raspberrypi/pico-examples/tree/master/i2c
-
-    /** 
-    // Get a free channel, panic() if there are none
-    int chan = dma_claim_unused_channel(true);
-    
-    // 8 bit transfers. Both read and write address increment after each
-    // transfer (each pointing to a location in src or dst respectively).
-    // No DREQ is selected, so the DMA transfers as fast as it can.
-    
-    dma_channel_config c = dma_channel_get_default_config(chan);
-    channel_config_set_transfer_data_size(&c, DMA_SIZE_8);
-    channel_config_set_read_increment(&c, true);
-    channel_config_set_write_increment(&c, true);
-    
-    dma_channel_configure(
-        chan,          // Channel to be configured
-        &c,            // The configuration we just created
-        dst,           // The initial write address
-        src,           // The initial read address
-        count_of(src), // Number of transfers; in this case each is 1 byte.
-        true           // Start immediately.
-    );
-    
-    // We could choose to go and do something else whilst the DMA is doing its
-    // thing. In this case the processor has nothing else to do, so we just
-    // wait for the DMA to finish.
-    dma_channel_wait_for_finish_blocking(chan);
-    
-    // The DMA has now copied our text from the transmit buffer (src) to the
-    // receive buffer (dst), so we can print it out from there.
-    puts(dst);
-
-    // PIO Blinking example
-    PIO pio = pio0;
-    uint offset = pio_add_program(pio, &blink_program);
-    printf("Loaded program at %d\n", offset);
-    
-    #ifdef PICO_DEFAULT_LED_PIN
-    blink_pin_forever(pio, 0, offset, PICO_DEFAULT_LED_PIN, 3);
-    #else
-    blink_pin_forever(pio, 0, offset, 6, 3);
-    #endif
-    // For more pio examples see https://github.com/raspberrypi/pico-examples/tree/master/pio
-
-    // Interpolator example code
-    interp_config cfg = interp_default_config();
-    // Now use the various interpolator library functions for your use case
-    // e.g. interp_config_clamp(&cfg, true);
-    //      interp_config_shift(&cfg, 2);
-    // Then set the config 
-    interp_set_config(interp0, 0, &cfg);
-    // For examples of interpolator use see https://github.com/raspberrypi/pico-examples/tree/master/interp
-
-    // Timer example code - This example fires off the callback after 2000ms
-    add_alarm_in_ms(2000, alarm_callback, NULL, false);
-    // For more examples of timer use see https://github.com/raspberrypi/pico-examples/tree/master/timer
-
-    // Watchdog example code
-    if (watchdog_caused_reboot()) {
-        printf("Rebooted by Watchdog!\n");
-        // Whatever action you may take if a watchdog caused a reboot
-    }
-    
-    // Enable the watchdog, requiring the watchdog to be updated every 100ms or the chip will reboot
-    // second arg is pause on debug which means the watchdog will pause when stepping through code
-    watchdog_enable(100, 1);
-    
-    // You need to call this function at least more often than the 100ms in the enable call to prevent a reboot
-    watchdog_update();
-
-    printf("System Clock Frequency is %d Hz\n", clock_get_hz(clk_sys));
-    printf("USB Clock Frequency is %d Hz\n", clock_get_hz(clk_usb));
-    // For more examples of clocks use see https://github.com/raspberrypi/pico-examples/tree/master/clocks
-
-    // Set up our UART
-    uart_init(UART_ID, BAUD_RATE);
-    // Set the TX and RX pins by using the function select on the GPIO
-    // Set datasheet for more information on function select
-    gpio_set_function(UART_TX_PIN, GPIO_FUNC_UART);
-    gpio_set_function(UART_RX_PIN, GPIO_FUNC_UART);
-    
-    // Use some the various UART functions to send out data
-    // In a default system, printf will also output via the default UART
-    
-    // Send out a string, with CR/LF conversions
-    uart_puts(UART_ID, " Hello, UART!\n");
-    
-    // For more examples of UART use see https://github.com/raspberrypi/pico-examples/tree/master/uart
-    */
-    
-        //printf("Hello, world!\n");
-        sleep_ms(5);
-    }
-}
 
 
 
