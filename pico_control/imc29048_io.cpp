@@ -72,7 +72,7 @@ struct imu_data {
 struct imc29048_data {
     uint32_t timestamp; // Timestamp in milliseconds
     struct imu_data imu; // Gyroscope data
-    struct accel_data accel; // Accelerometer data
+    //struct accel_data accel; // Accelerometer data
     struct magnetometer_data mag; // Magnetometer data
 };
 

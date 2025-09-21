@@ -10,7 +10,8 @@
 #include "hardware/clocks.h"
 #include "hardware/uart.h"
 
-#include "pico_control/imc29048_io.cpp"
+//#include "pico_control/imc29048_io.cpp"
+#include "pico_control/magdwick.cpp"
 
 // SPI Defines
 // We are going to use SPI 0, and allocate it to the following GPIO pins
@@ -210,12 +211,19 @@ int main()
         }
         
         printf("Reading IMU and Magnetometer data with classes...\n");
-        sleep_ms(5);
+        while(true){
+        sleep_ms(500);
         
-        imc29048_data imc29048_data = imc29048.read_data();
+        struct imc29048_data sensordata; sensordata = imc29048.read_data();
         imc29048.print_data();
+        printf("Timestamp: %u ms\n", sensordata.timestamp);
+        quaternion q; q = a2quaternion(sensordata.imu.accel.x, sensordata.imu.accel.y, sensordata.imu.accel.z);
+        printf("Quaternion from Accel: w=%f x=%f y=%f z=%f\n", q.w, q.x, q.y, q.z);
+        printf("Apply Madgwick filter \n");
+
         printf("End of Reading IMU and Magnetometer data with classes...\n");
-        sleep_ms(5);
+        sleep_ms(500);
+        }
         // Note: For real use, you must configure the IMU to enable the I2C master and set up the magnetometer read.
         // See the ICM-20948 datasheet or use a library for full initialization.
 
