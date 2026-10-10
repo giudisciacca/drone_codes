@@ -223,7 +223,7 @@ int main()
         printf("Apply Madgwick filter \n");
 
         printf("End of Reading IMU and Magnetometer data with classes...\n");
-        printf("----------------------------------------------------\n");
+        printf("------------------------------NEW---------------------\n");
         sleep_ms(500);
         }
         // Note: For real use, you must configure the IMU to enable the I2C master and set up the magnetometer read.
