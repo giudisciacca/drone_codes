@@ -72,6 +72,7 @@ int main()
 
     stdio_init_all();
     sleep_ms(2000); 
+
     /** 
     
     // SPI initialisation. This example will use SPI at 1MHz.
@@ -110,7 +111,7 @@ int main()
     while (true) {
     // Wake up the IMU
     int init_result = i2c_write_blocking(I2C_PORT, IMU_ADDR, pwr_mgmt_data, 2, false);
-
+        printf("modification to check how to compile code\n");
     if (init_result < 0) {
         printf("Failed to initialize ICM-29048\n");
     } else {
@@ -222,6 +223,7 @@ int main()
         printf("Apply Madgwick filter \n");
 
         printf("End of Reading IMU and Magnetometer data with classes...\n");
+        printf("----------------------------------------------------\n");
         sleep_ms(500);
         }
         // Note: For real use, you must configure the IMU to enable the I2C master and set up the magnetometer read.
