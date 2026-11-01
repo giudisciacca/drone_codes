@@ -32,7 +32,42 @@ struct measurement{
     float pressure;
 };
 
+struct error_state{
+    vector3d position_error;
+    vector3d velocity_error;
+    vector3d acceleration_error;
+    quaternion q_error;
+    vector3d omega_error;
+    vector3d gyro_bias_error;
+    vector3d accel_bias_error;
+};
 
+enum class stateIndex : size_t {
+    x, y, z,
+    vx,vy,vz,
+    ax, ay, az,
+    qw,qx,qy,qz,
+    wx,wy,wz,
+    gyro_bias_x,gyro_bias_y,gyro_bias_z,
+    accel_bias_x,accel_bias_y,accel_bias_z,
+};
+
+constexpr int operator+(stateIndex i) {
+    return static_cast<int>(i);
+}
+enum class errorIndex : size_t {
+    x, y, z,
+    vx,vy,vz,
+    ax,ay,az,
+    roll, pitch, yaw,
+    wx,wy,wz,
+    gyro_bias_x,gyro_bias_y,gyro_bias_z,
+    accel_bias_x,accel_bias_y,accel_bias_z,
+};
+
+constexpr int operator+(errorIndex i) {
+    return static_cast<int>(i);
+}
 
 
 
@@ -76,11 +111,13 @@ class ESKF{
 
     }
 
-    state jacobian_dynamics(state drone_state){
+    jac_matrix_process jacobian_dynamics(state drone_state){
         // Implement the Jacobian of the forward model for the measurement operator
         // This function should return the Jacobian matrix based on the current state and the measurement model
-        state jacobian_matrix;   
-        jacobian_matrix[][]
+       jac_matrix_process jacobian_matrix; 
+       jacobian_matrix.block<3,3>(+stateIndex::x, +stateIndex::x).setIdentity();
+       
+        
     }
 
     measurement forward_measurement(state drone_state){
