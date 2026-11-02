@@ -85,7 +85,13 @@ class quaternion{
              -y,  z,  w, -x,
              -z, -y,  x,  w;
         return J;
-    } 
+    }
+    
+    vector3d rotate_vector(const vector3d& v) const {
+        quaternion v_quat(0, v[0], v[1], v[2]);
+        quaternion result = (*this) * v_quat * this->conjugate();
+        return vector3d(result.x, result.y, result.z);
+    }
 };
 
 

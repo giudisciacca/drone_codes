@@ -4,15 +4,24 @@
 # include <vector>
 # include <Eigen/Core>
 
+constexpr int nstate = 22;
+constexpr int nmeas = 10;
+constexpr float g = 9.81f;
+constexpr float atmospheric_pressure = 101325.0f;
+constexpr float R = 287.05f;
+constexpr float lapse_rate = 0.0065f;
+constexpr float sea_level_temperature = 288.15f;
+constexpr float exponent = g/(R * lapse_rate);
+
 using namespace std;
-using covariance_matrix_process = Eigen::Matrix<float, 22, 22>;
+using covariance_matrix_process = Eigen::Matrix<float, nstate, nstate>;
 using vector3d = Eigen::Matrix<float, 3, 1>;
-using covariance_matrix_measurement = Eigen::Matrix<float, 10, 10>;
+using covariance_matrix_measurement = Eigen::Matrix<float, nmeas, nmeas>;
 
-using jac_matrix_process = Eigen::Matrix<float, 22, 22>;
-using jac_matrix_measurement = Eigen::Matrix<float, 10, 22>;
+using jac_matrix_process = Eigen::Matrix<float, nstate, nstate>;
+using jac_matrix_measurement = Eigen::Matrix<float, nmeas, nstate>;
 
-using error_jac_matrix_process = Eigen::Matrix<float, 21, 21>;
+using error_jac_matrix_process = Eigen::Matrix<float, nstate - 1, nstate - 1>;
 
 
 struct state{
@@ -52,6 +61,7 @@ enum class stateIndex : size_t {
     accel_bias_x,accel_bias_y,accel_bias_z,
 };
 
+
 constexpr int operator+(stateIndex i) {
     return static_cast<int>(i);
 }
@@ -69,8 +79,32 @@ constexpr int operator+(errorIndex i) {
     return static_cast<int>(i);
 }
 
+Eigen::Matrix<float, nstate, 1> state2vector(state s){
+    Eigen::Matrix<float, nstate, 1> v;
+    v << s.position(0), s.position(1), s.position(2),
+         s.velocity(0), s.velocity(1), s.velocity(2),
+         s.acceleration(0), s.acceleration(1), s.acceleration(2),
+         s.q.w, s.q.x, s.q.y, s.q.z,
+         s.omega(0), s.omega(1), s.omega(2),
+         s.gyro_bias(0), s.gyro_bias(1), s.gyro_bias(2),
+         s.accel_bias(0), s.accel_bias(1), s.accel_bias(2);
+    return v;
+}
 
-
+state vector2state(Eigen::Matrix<float, nstate, 1> v){
+    state s;
+    s.position << v(0), v(1), v(2);
+    s.velocity << v(3), v(4), v(5);
+    s.acceleration << v(6), v(7), v(8);
+    s.q.w = v(9);
+    s.q.x = v(10);
+    s.q.y = v(11);
+    s.q.z = v(12);
+    s.omega << v(13), v(14), v(15);
+    s.gyro_bias << v(16), v(17), v(18);
+    s.accel_bias << v(19), v(20), v(21);
+    return s;
+}
 
 class ESKF{
 
@@ -92,14 +126,25 @@ class ESKF{
         // Implement the state update based on the measurement operator
         // This function should return the updated state based on the current state and the measurement
 
+        // predict the next state using the forward dynamics
 
-        
+        // update noise covariance matrices based on the current state and the measurement
+
+        // compute jacobian matrices for the forward dynamics and the measurement operator
+
+        // solve system in error space
+
+        // update the current state based on the error state
         state updated_state;
+
+        this->current_state = drone_state; // Update the current state with the new state
+        return this->current_state;        
     }
 
-    state forward_dynamics(state drone_state){
+    state forward_dynamics(){
         // Implement the forward model for the measurement operator
         // This function should return the predicted state based on the current state and the measurement model
+        state drone_state = this->current_state;
         state predicted_state;
         predicted_state.position = drone_state.position + drone_state.velocity * dt + 0.5 * drone_state.acceleration * dt * dt;
         predicted_state.velocity = drone_state.velocity + drone_state.acceleration * dt;
@@ -115,15 +160,39 @@ class ESKF{
         // Implement the Jacobian of the forward model for the measurement operator
         // This function should return the Jacobian matrix based on the current state and the measurement model
        jac_matrix_process jacobian_matrix; 
-       jacobian_matrix.block<3,3>(+stateIndex::x, +stateIndex::x).setIdentity();
-       
+       jacobian_matrix.block<3,3>(+errorIndex::x, +errorIndex::x).setIdentity();
+       jacobian_matrix.block<3,3>(+errorIndex::x, +errorIndex::vx).diagonal().setConstant(this->dt);
+       jacobian_matrix.block<3,3>(+errorIndex::x, +errorIndex::ax).diagonal().setConstant(0.5*this->dt*this->dt);
+
+       jacobian_matrix.block<3,3>(+errorIndex::vx, +errorIndex::vx).setIdentity();
+       jacobian_matrix.block<3,3>(+errorIndex::x, +errorIndex::ax).diagonal().setConstant(this->dt);
+
+       jacobian_matrix.block<3,3>(+errorIndex::ax, +errorIndex::ax).setIdentity();
+
+       jacobian_matrix.block<3,3>(+errorIndex::roll, +errorIndex::roll).setIdentity();// TODO: Implement the correct Jacobian for the quaternion error state
+       jacobian_matrix.block<3,3>(+errorIndex::roll, +errorIndex::wx).setIdentity();//TODO: Implement the correct Jacobian for the quaternion error state
+
+       jacobian_matrix.block<3,3>(+errorIndex::wx, +errorIndex::wx).setIdentity();
+
+       jacobian_matrix.block<3,3>(+errorIndex::gyro_bias_x, +errorIndex::gyro_bias_x).setIdentity();
+       jacobian_matrix.block<3,3>(+errorIndex::accel_bias_x, +errorIndex::accel_bias_x).setIdentity();
+
+       return jacobian_matrix;
         
     }
 
     measurement forward_measurement(state drone_state){
         // Implement the measurement model for the measurement operator
         // This function should return the predicted measurement based on the current state and the measurement model
+
+
+
         measurement predicted_measurement;
+        predicted_measurement.accel = expected_acceleration(drone_state);
+        predicted_measurement.gyro = expected_angular_velocity(drone_state);
+        predicted_measurement.mag = expected_magneticfield(drone_state);
+        predicted_measurement.pressure = expected_pressure(drone_state);
+        return predicted_measurement;
     }
 
     measurement jacobian_measurement(state drone_state){
@@ -132,29 +201,41 @@ class ESKF{
         measurement jacobian_matrix;   
     }
 
-    vector3d expected_measurement(state drone_state){
-        // Implement the measurement model for the measurement operator
-        // This function should return the expected measurement based on the current state
-    }
-    
+
     vector3d expected_acceleration(state drone_state){
         // Implement the measurement model for the measurement operator
         // This function should return the expected measurement based on the current state
+        vector3d expected_accel;
+        expected_accel = drone_state.accel_bias + drone_state.q.rotate_vector(drone_state.acceleration + vector3d(0, 0, -g));
+        return expected_accel;
     }
   
     vector3d expected_angular_velocity(state drone_state){
         // Implement the measurement model for the measurement operator
         // This function should return the expected measurement based on the current state
+        vector3d expected_gyro;
+        expected_gyro = drone_state.omega + drone_state.gyro_bias;
+        return expected_gyro;
     }
 
     vector3d expected_magneticfield(state drone_state){
         // Implement the measurement model for the measurement operator
         // This function should return the expected measurement based on the current state
+        vector3d expected_mag;
+        // Assuming the magnetic field is aligned with the world frame's z-axis
+        vector3d world_magnetic_field(0, 1, 0); 
+        expected_mag = drone_state.q.rotate_vector(world_magnetic_field);
+        return expected_mag;
     }
 
-    vector3d expected_pressure(state drone_state){
+    float expected_pressure(state drone_state){
         // Implement the measurement model for the measurement operator
         // This function should return the expected measurement based on the current state
+        float expected_pressure;
+        float altitude = drone_state.position(2);
+        
+        expected_pressure = atmospheric_pressure * pow(1 - (lapse_rate * altitude) / sea_level_temperature, exponent);
+        return expected_pressure;
     }
 
 
