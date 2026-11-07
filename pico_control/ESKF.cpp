@@ -65,6 +65,10 @@ enum class stateIndex : size_t {
 constexpr int operator+(stateIndex i) {
     return static_cast<int>(i);
 }
+
+constexpr int operator+(measIndex i) {
+    return static_cast<int>(i);
+}
 enum class errorIndex : size_t {
     x, y, z,
     vx,vy,vz,
@@ -73,6 +77,14 @@ enum class errorIndex : size_t {
     wx,wy,wz,
     gyro_bias_x,gyro_bias_y,gyro_bias_z,
     accel_bias_x,accel_bias_y,accel_bias_z,
+};
+
+
+enum class measIndex : size_t {
+    ax,ay,az,
+    wx,wy,wz,
+    mx,my,mz,
+    p
 };
 
 constexpr int operator+(errorIndex i) {
@@ -184,9 +196,6 @@ class ESKF{
     measurement forward_measurement(state drone_state){
         // Implement the measurement model for the measurement operator
         // This function should return the predicted measurement based on the current state and the measurement model
-
-
-
         measurement predicted_measurement;
         predicted_measurement.accel = expected_acceleration(drone_state);
         predicted_measurement.gyro = expected_angular_velocity(drone_state);
@@ -198,7 +207,15 @@ class ESKF{
     measurement jacobian_measurement(state drone_state){
         // Implement the Jacobian of the measurement model for the measurement operator
         // This function should return the Jacobian matrix based on the current state and the measurement model
-        measurement jacobian_matrix;   
+
+
+
+
+        jac_matrix_measurement jacobian_matrix;   
+        jacobian_matrix.block<3,3>(+measIndex::ax, +errorIndex::ax)
+
+
+
     }
 
 
