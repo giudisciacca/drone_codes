@@ -11,7 +11,7 @@ Upgrades:
 
 
 - Perception 
-The perception features a MAgdwick filter. Work is ongoing to substitute the Magdwick filter with an Error Space Kalman Filter
+The perception features a MAgdwick filter. Work is ongoing to substitute the Magdwick filter with an Error Space Kalman Filter. 
 
 - Upgrades: 
 SLAM implementation. 

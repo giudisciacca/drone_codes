@@ -1,6 +1,6 @@
 #include <stdio.h>
 #include <math.h>
-#include <Eigen/Core>
+#include "lib/eigen/Eigen/Core"
 
 using namespace std;
 using matrix4x4 = Eigen::Matrix<float, 4, 4>;
@@ -62,21 +62,22 @@ class quaternion{
     }
 
     matrix4x4 to_left_matrix() const {
-        return matrix4x4(
+        
+        return (matrix4x4()<<
             w, -x, -y, -z,
             x,  w, -z,  y,
             y,  z,  w, -x,
             z, -y,  x,  w
-        );
+        ).finished();
     }                                                                           
 
     matrix4x4 to_right_matrix() const {
-        return matrix4x4(
+        return (matrix4x4()<<
             w, -x, -y, -z,
             x,  w,  z, -y,
             y, -z,  w,  x,
             z,  y, -x,  w
-        );
+        ).finished();
     }
 
     Eigen::Matrix<float, 3, 4> dqdtheta() const {
@@ -95,7 +96,7 @@ class quaternion{
 };
 
 
-quaternion vector_to_quaternion(vecotr3d v) {
+quaternion vector_to_quaternion(vector3d v) {
     return quaternion(0, v[0], v[1], v[2]);
 }
 

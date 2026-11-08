@@ -1,8 +1,8 @@
 # include <stdio.h>
 # include <math.h>
-# include <pico_control/quaternions.cpp>
+# include "pico_control/quaternions.cpp"
 # include <vector>
-# include <Eigen/Core>
+# include "lib/eigen/Eigen/Core"
 
 constexpr int nstate = 22;
 constexpr int nmeas = 10;
@@ -66,9 +66,7 @@ constexpr int operator+(stateIndex i) {
     return static_cast<int>(i);
 }
 
-constexpr int operator+(measIndex i) {
-    return static_cast<int>(i);
-}
+
 enum class errorIndex : size_t {
     x, y, z,
     vx,vy,vz,
@@ -86,7 +84,9 @@ enum class measIndex : size_t {
     mx,my,mz,
     p
 };
-
+constexpr int operator+(measIndex i) {
+    return static_cast<int>(i);
+}
 constexpr int operator+(errorIndex i) {
     return static_cast<int>(i);
 }
@@ -134,6 +134,15 @@ class ESKF{
             this->measurement_noise = covariance_matrix_measurement::Identity() * 0.01; // Initialize measurement noise covariance
         }
 
+        ESKF(float dt){
+            
+            this->dt = dt;
+            this->current_state = state();
+            this->process_noise = covariance_matrix_process::Identity() * 0.01; // Initialize process noise covariance
+            this->measurement_noise = covariance_matrix_measurement::Identity() * 0.01; // Initialize measurement noise covariance
+        }
+
+
     state update_state(state drone_state, measurement z){
         // Implement the state update based on the measurement operator
         // This function should return the updated state based on the current state and the measurement
@@ -165,6 +174,7 @@ class ESKF{
         predicted_state.omega = drone_state.omega;
         predicted_state.gyro_bias = drone_state.gyro_bias;
         predicted_state.accel_bias = drone_state.accel_bias;
+        return predicted_state;
 
     }
 
@@ -204,7 +214,7 @@ class ESKF{
         return predicted_measurement;
     }
 
-    measurement jacobian_measurement(state drone_state){
+    jac_matrix_measurement jacobian_measurement(state drone_state){
         // Implement the Jacobian of the measurement model for the measurement operator
         // This function should return the Jacobian matrix based on the current state and the measurement model
 
@@ -212,7 +222,9 @@ class ESKF{
 
 
         jac_matrix_measurement jacobian_matrix;   
-        jacobian_matrix.block<3,3>(+measIndex::ax, +errorIndex::ax)
+        
+        jacobian_matrix.block<3,3>(+measIndex::ax, +errorIndex::ax).setIdentity();
+        return jacobian_matrix;
 
 
 
