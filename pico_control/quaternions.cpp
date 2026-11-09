@@ -4,6 +4,8 @@
 
 using namespace std;
 using matrix4x4 = Eigen::Matrix<float, 4, 4>;
+using matrix3x3 = Eigen::Matrix<float, 3, 3>;
+
 using vector3d = Eigen::Matrix<float, 3, 1>;
 
 
@@ -11,7 +13,7 @@ class quaternion{
     public:
         float w, x, y, z;
         quaternion(float w, float x, float y, float z) : w(w), x(x), y(y), z(z) {}
-        quaternion() : w(1), x(0), y(0), z(0) {}
+        quaternion() : w(1.0f), x(0.0f), y(0.0f), z(0.0f) {}
         quaternion(const quaternion& q) : w(q.w), x(q.x), y(q.y), z(q.z) {}
         ~quaternion() {}
 
@@ -78,6 +80,20 @@ class quaternion{
             y, -z,  w,  x,
             z,  y, -x,  w
         ).finished();
+    }
+
+    matrix3x3 to_rotation_matrix() const {
+        matrix3x3 R;
+        R << 1 - 2 * (y * y + z * z), 2 * (x * y - z * w),     2 * (x * z + y * w),
+             2 * (x * y + z * w),     1 - 2 * (x * x + z * z), 2 * (y * z - x * w),
+             2 * (x * z - y * w),     2 * (y * z + x * w),     1 - 2 * (x * x + y * y);
+        return R;
+    }
+
+    Eigen::Matrix<float,4,1> to_vector() const {
+        Eigen::Matrix<float,4,1> v;
+        v << w, x, y, z;
+        return v;
     }
 
     Eigen::Matrix<float, 3, 4> dqdtheta() const {

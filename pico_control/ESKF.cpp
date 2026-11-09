@@ -166,6 +166,7 @@ class ESKF{
         // Implement the forward model for the measurement operator
         // This function should return the predicted state based on the current state and the measurement model
         state drone_state = this->current_state;
+        float dt = this->dt;
         state predicted_state;
         predicted_state.position = drone_state.position + drone_state.velocity * dt + 0.5 * drone_state.acceleration * dt * dt;
         predicted_state.velocity = drone_state.velocity + drone_state.acceleration * dt;
@@ -178,7 +179,7 @@ class ESKF{
 
     }
 
-    jac_matrix_process jacobian_dynamics(state drone_state){
+    jac_matrix_process jacobian_dynamics(){
         // Implement the Jacobian of the forward model for the measurement operator
         // This function should return the Jacobian matrix based on the current state and the measurement model
        jac_matrix_process jacobian_matrix; 
@@ -203,10 +204,11 @@ class ESKF{
         
     }
 
-    measurement forward_measurement(state drone_state){
+    measurement forward_measurement(){
         // Implement the measurement model for the measurement operator
         // This function should return the predicted measurement based on the current state and the measurement model
         measurement predicted_measurement;
+        state drone_state = this->current_state;
         predicted_measurement.accel = expected_acceleration(drone_state);
         predicted_measurement.gyro = expected_angular_velocity(drone_state);
         predicted_measurement.mag = expected_magneticfield(drone_state);
@@ -214,16 +216,22 @@ class ESKF{
         return predicted_measurement;
     }
 
-    jac_matrix_measurement jacobian_measurement(state drone_state){
+    jac_matrix_measurement jacobian_measurement(state expected_state){
         // Implement the Jacobian of the measurement model for the measurement operator
         // This function should return the Jacobian matrix based on the current state and the measurement model
 
 
-
-
         jac_matrix_measurement jacobian_matrix;   
         
-        jacobian_matrix.block<3,3>(+measIndex::ax, +errorIndex::ax).setIdentity();
+        vector3d expected_accel = expected_acceleration(expected_state);
+        
+        jacobian_matrix.block<3,3>(+measIndex::ax, +errorIndex::ax) = expected_state.q.to_rotation_matrix().block<3,3>(0,0);
+        jacobian_matrix.block<3,3>(+measIndex::ax, +errorIndex::accel_bias_x).setIdentity();
+        jacobian_matrix.block<4,4>(+measIndex::ax, +stateIndex::qw) = expected_state.q.to_left_matrix().block<4,4>(0,0) + 
+        expected_state.q.to_right_matrix().block<4,4>(0,0);
+        
+        
+        
         return jacobian_matrix;
 
 
