@@ -4,6 +4,7 @@
 # include <vector>
 # include "lib/eigen/Eigen/Core"
 
+
 constexpr int nstate = 22;
 constexpr int nmeas = 10;
 constexpr float g = 9.81f;
@@ -13,15 +14,17 @@ constexpr float lapse_rate = 0.0065f;
 constexpr float sea_level_temperature = 288.15f;
 constexpr float exponent = g/(R * lapse_rate);
 
+
 using namespace std;
 using covariance_matrix_process = Eigen::Matrix<float, nstate, nstate>;
 using vector3d = Eigen::Matrix<float, 3, 1>;
 using covariance_matrix_measurement = Eigen::Matrix<float, nmeas, nmeas>;
-
 using jac_matrix_process = Eigen::Matrix<float, nstate, nstate>;
 using jac_matrix_measurement = Eigen::Matrix<float, nmeas, nstate>;
-
 using error_jac_matrix_process = Eigen::Matrix<float, nstate - 1, nstate - 1>;
+
+constexpr vector3d gvec = vector3d(0, 0, g);    
+
 
 
 struct state{
@@ -222,16 +225,38 @@ class ESKF{
 
 
         jac_matrix_measurement jacobian_matrix;   
+        Eigen::Matrix<float, 4, 3> dq_dtheta = expected_state.q.dqdtheta();
+        Eigen::Matrix<float, 4, 4> dmeas_dq;
+
         
         vector3d expected_accel = expected_acceleration(expected_state);
         
         jacobian_matrix.block<3,3>(+measIndex::ax, +errorIndex::ax) = expected_state.q.to_rotation_matrix().block<3,3>(0,0);
         jacobian_matrix.block<3,3>(+measIndex::ax, +errorIndex::accel_bias_x).setIdentity();
-        jacobian_matrix.block<4,4>(+measIndex::ax, +stateIndex::qw) = expected_state.q.to_left_matrix().block<4,4>(0,0) + 
-        expected_state.q.to_right_matrix().block<4,4>(0,0);
+
+        // meas a = q * (a + g) * q_conjugate + accel_bias
+        // dmeas/dq = Lq * La * Mconj +    Rqconj Ra
+        quaternion qa = quaternion(expected_accel);
+        quaternion qg = quaternion(gvec);
+        quaternion q = qa + qg;
+        dmeas_dq = (expected_state.q.to_left_matrix()*q.to_left_matrix()*to_conjugate_matrix() +
+         expected_state.q.to_right_matrix()*q.to_right_matrix());
+
+        jacobian_matrix.block<3,3>(+measIndex::ax, +errorIndex::roll) = q2vector_matrix() * dmeas_dq * dq_dtheta;
         
-        
-        
+        jacobian_matrix.block<3,3>(+measIndex::wx, +errorIndex::wx).setIdentity();
+
+        jacobian_matrix.block<3,3>(+measIndex::wx, +errorIndex::gyro_bias_x).setIdentity();
+
+        vector3d expected_mag = expected_magneticfield(expected_state);
+        q = quaternion(expected_mag);
+        dmeas_dq = (expected_state.q.to_left_matrix()*q.to_left_matrix()*to_conjugate_matrix() +
+         expected_state.q.to_right_matrix()*q.to_right_matrix());
+        jacobian_matrix.block<3,3>(+measIndex::mx, +errorIndex::roll) = q2vector_matrix() * dmeas_dq * dq_dtheta;
+
+        float expected_p = expected_pressure(expected_state);
+        jacobian_matrix(+measIndex::p, +errorIndex::z) = -exponent * lapse_rate / (sea_level_temperature - lapse_rate * expected_state.position(2)) * expected_p;
+
         return jacobian_matrix;
 
 
@@ -274,8 +299,6 @@ class ESKF{
         expected_pressure = atmospheric_pressure * pow(1 - (lapse_rate * altitude) / sea_level_temperature, exponent);
         return expected_pressure;
     }
-
-
 
 
 };

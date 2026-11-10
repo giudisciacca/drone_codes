@@ -15,6 +15,7 @@ class quaternion{
         quaternion(float w, float x, float y, float z) : w(w), x(x), y(y), z(z) {}
         quaternion() : w(1.0f), x(0.0f), y(0.0f), z(0.0f) {}
         quaternion(const quaternion& q) : w(q.w), x(q.x), y(q.y), z(q.z) {}
+        quaternion(vector3d v) : w(0.0f), x(v[0]), y(v[1]), z(v[2]) {}
         ~quaternion() {}
 
     quaternion operator*(const quaternion& q) const {
@@ -95,21 +96,39 @@ class quaternion{
         v << w, x, y, z;
         return v;
     }
-
-    Eigen::Matrix<float, 3, 4> dqdtheta() const {
-        Eigen::Matrix<float, 3, 4> J;
-        J << -x,  w, -z,  y,
-             -y,  z,  w, -x,
-             -z, -y,  x,  w;
+  
+    Eigen::Matrix<float, 4, 3> dqdtheta() const {
+        Eigen::Matrix<float, 4, 3> J;
+        J << -w, -x, -y,
+             x, -w,  z,
+             y, -z, -w,
+             z,  y, -x;
         return J;
     }
-    
+
     vector3d rotate_vector(const vector3d& v) const {
         quaternion v_quat(0, v[0], v[1], v[2]);
         quaternion result = (*this) * v_quat * this->conjugate();
         return vector3d(result.x, result.y, result.z);
     }
 };
+
+Eigen::Matrix<float,4,4> to_conjugate_matrix() {
+    Eigen::Matrix<float,4,4> C;
+    C <<  1.f, 0.f, 0.f, 0.f,
+          0.f,-1.f, 0.f, 0.f,
+          0.f, 0.f,-1.f, 0.f,
+          0.f, 0.f, 0.f, -1.f;
+    return C;
+}
+
+Eigen::Matrix<float,3,4> q2vector_matrix() {
+    Eigen::Matrix<float,3,4> C;
+    C <<  0.f,-1.f, 0.f, 0.f,
+          0.f, 0.f,-1.f, 0.f,
+          0.f, 0.f, 0.f, -1.f;
+    return C;
+}
 
 
 quaternion vector_to_quaternion(vector3d v) {
